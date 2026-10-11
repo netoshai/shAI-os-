@@ -1,0 +1,357 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>ShayOS | Executive Operating System</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- React & Babel -->
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Heebo', 'sans-serif'],
+                        mono: ['JetBrains Mono', 'monospace'],
+                    },
+                    colors: {
+                        zinc: {
+                            950: '#09090b',
+                            900: '#121215',
+                            850: '#18181c',
+                            800: '#222227',
+                            700: '#33333a',
+                            600: '#52525b',
+                            400: '#a1a1aa',
+                            300: '#d4d4d8',
+                        },
+                        urgent: '#ef4444',     // Red = Urgent (🔥)
+                        completed: '#10b981',  // Green = Completed (✅)
+                        waiting: '#f59e0b',    // Yellow/Amber = Waiting (⏳)
+                        ai: '#8b5cf6',         // Purple = AI Action (🤖)
+                        quick: '#06b6d4',      // Cyan = Quick Win (⚡)
+                        deep: '#ec4899',       // Pink = Deep Work (🐢)
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        * { -webkit-tap-highlight-color: transparent; }
+        body { background-color: #09090b; color: #d4d4d8; font-family: 'Heebo', sans-serif; user-select: none; }
+        input, textarea { user-select: text; }
+        .hide-scrollbar::-webkit-scrollbar { display: none; }
+        .task-done-animation { text-decoration: line-through; color: #71717a !important; opacity: 0.4; transform: translateX(-6px); transition: all 0.4s ease; }
+    </style>
+</head>
+<body class="bg-zinc-950 text-zinc-300 min-h-screen">
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect, useMemo } = React;
+
+        const INITIAL_CLIENTS = [
+            {
+                id: 'c-triple-c',
+                name: 'טריפל סי (Triple C)',
+                status: 'Active',
+                tasks: [
+                    { id: 't-1', title: 'לעצב קאבר למגזין TheMarker (מחכה לנועם)', tag: 'urgent', isFinance: false, isDelegated: true, amount: 0, notes: 'לוודא קו עיצובי יוקרתי.', vault: 'Midjourney: Minimalist tech magazine cover, dark mode --ar 4:5' },
+                    { id: 't-2', title: 'לייצר קמפיין ממומן 49 ש"ח', tag: 'deep', isFinance: false, isDelegated: false, amount: 0, notes: 'הגדרת קהלי יעד ולוק-אלייק.', vault: 'קופי: פתרון ענן מאובטח לעסקים.' },
+                    { id: 't-3', title: 'לשלוח וואטסאפ לאדי לגבי קריאייטיבים שעלו', tag: 'quick', isFinance: false, isDelegated: false, amount: 0, notes: '', vault: '' }
+                ]
+            },
+            {
+                id: 'c-haktzitza',
+                name: 'הקציצה',
+                status: 'Retainer',
+                tasks: [
+                    { id: 't-4', title: 'לסגור ריטיינר ותנאי תשלום מול יעקב', tag: 'urgent', isFinance: true, isDelegated: false, amount: 12500, notes: 'שוטף פלוס 30.', vault: '' },
+                    { id: 't-5', title: 'לעלות קמפיין גיוס המונים לאוויר', tag: 'urgent', isFinance: false, isDelegated: false, amount: 0, notes: '', vault: '' },
+                    { id: 't-6', title: 'סרטון Reels לאינסטגרם החדש', tag: 'quick', isFinance: false, isDelegated: false, amount: 0, notes: '', vault: '' }
+                ]
+            },
+            {
+                id: 'c-seo-rush',
+                name: 'SEO Rush',
+                status: 'Active',
+                tasks: [
+                    { id: 't-7', title: 'לשלוח חשבונית חודשית ליוסי ברוך', tag: 'quick', isFinance: true, isDelegated: false, amount: 8500, notes: '', vault: '' },
+                    { id: 't-8', title: 'ניתוח מילות מפתח בעזרת AI לתחום הנדל"ן', tag: 'deep', isFinance: false, isDelegated: false, amount: 0, notes: '', vault: 'פרומפט מחקר שוק' }
+                ]
+            },
+            {
+                id: 'c-tipuli',
+                name: 'טיפולי (דניאל שניידר)',
+                status: 'Active',
+                tasks: [
+                    { id: 't-9', title: 'סטורי-בורד בבינה מלאכותית (לקוחות מחכות!)', tag: 'deep', isFinance: false, isDelegated: false, amount: 0, notes: '', vault: 'Runway Gen-2 video prompt' },
+                    { id: 't-10', title: 'לדבר עם דניאל להרים לו מוטיבציה', tag: 'quick', isFinance: false, isDelegated: false, amount: 0, notes: '', vault: '' }
+                ]
+            }
+        ];
+
+        function ShayOS() {
+            const [isAuthenticated, setIsAuthenticated] = useState(() => localStorage.getItem('shayos_auth') === 'true');
+            const [loginPassword, setLoginPassword] = useState('');
+            const [authError, setAuthError] = useState(false);
+
+            const [clients, setClients] = useState(() => {
+                const saved = localStorage.getItem('shayos_clients_data');
+                return saved ? JSON.parse(saved) : INITIAL_CLIENTS;
+            });
+            const [history, setHistory] = useState(() => {
+                const saved = localStorage.getItem('shayos_history_log');
+                return saved ? JSON.parse(saved) : [];
+            });
+
+            const [activeTab, setActiveTab] = useState('clients');
+            const [expandedClients, setExpandedClients] = useState({ 'c-triple-c': true, 'c-haktzitza': true });
+            const [expandedTaskDetails, setExpandedTaskDetails] = useState({});
+            const [aiInput, setAiInput] = useState('');
+            const [isListening, setIsListening] = useState(false);
+            const [aiFeedback, setAiFeedback] = useState(null);
+
+            // Focus Mode Timer
+            const [focusTimer, setFocusTimer] = useState(25 * 60);
+            const [isTimerRunning, setIsTimerRunning] = useState(false);
+
+            useEffect(() => {
+                localStorage.setItem('shayos_clients_data', JSON.stringify(clients));
+            }, [clients]);
+
+            useEffect(() => {
+                localStorage.setItem('shayos_history_log', JSON.stringify(history));
+            }, [history]);
+
+            useEffect(() => {
+                let interval = null;
+                if (isTimerRunning && focusTimer > 0) {
+                    interval = setInterval(() => setFocusTimer(t => t - 1), 1000);
+                }
+                return () => clearInterval(interval);
+            }, [isTimerRunning, focusTimer]);
+
+            const macro = useMemo(() => {
+                let urgent = 0, quick = 0, delegated = 0, ai = 0, moneyPending = 0;
+                clients.forEach(c => c.tasks.forEach(t => {
+                    if (t.tag === 'urgent') urgent++;
+                    if (t.tag === 'quick') quick++;
+                    if (t.tag === 'deep') ai++;
+                    if (t.isDelegated) delegated++;
+                    if (t.isFinance) moneyPending += (Number(t.amount) || 0);
+                }));
+                return { urgent, quick, delegated, ai, moneyPending: moneyPending > 0 ? `₪${(moneyPending/1000).toFixed(0)}k` : '₪31k' };
+            }, [clients]);
+
+            const allUrgentTasks = useMemo(() => {
+                return clients.flatMap(c => c.tasks.filter(t => t.tag === 'urgent').map(t => ({ ...t, clientName: c.name, clientId: c.id })));
+            }, [clients]);
+
+            const handleLogin = (e) => {
+                e.preventDefault();
+                const saved = localStorage.getItem('shayos_pwd') || 'shay';
+                if (loginPassword.trim() === saved) {
+                    localStorage.setItem('shayos_auth', 'true');
+                    setIsAuthenticated(true);
+                } else {
+                    setAuthError(true);
+                }
+            };
+
+            const completeTask = (clientId, taskId) => {
+                const client = clients.find(c => c.id === clientId);
+                if (!client) return;
+                const task = client.tasks.find(t => t.id === taskId);
+                const el = document.getElementById(`task-${taskId}`);
+                if (el) el.classList.add('task-done-animation');
+
+                setTimeout(() => {
+                    setClients(prev => prev.map(c => c.id === clientId ? { ...c, tasks: c.tasks.filter(t => t.id !== taskId) } : c));
+                    setHistory(prev => [{ ...task, clientName: client.name }, ...prev]);
+                }, 500);
+            };
+
+            const handleAiSubmit = (e) => {
+                e.preventDefault();
+                if (!aiInput.trim()) return;
+                const text = aiInput.trim();
+                setAiInput('');
+
+                const lower = text.toLowerCase();
+                let client = clients.find(c => lower.includes(c.name.toLowerCase()));
+                const targetClientId = client ? client.id : clients[0].id;
+
+                let tag = lower.includes('דחוף') ? 'urgent' : (lower.includes('צפרדע') || lower.includes('עמוק') ? 'deep' : 'quick');
+                let isFinance = lower.includes('חשבונית') || lower.includes('תשלום') || lower.includes('ש"ח') || lower.includes('₪');
+
+                const newTask = {
+                    id: 't-' + Date.now(),
+                    title: text.replace(/^(תזכיר לי|להוסיף|סיימתי)\s*/, '').trim(),
+                    tag,
+                    isFinance,
+                    isDelegated: false,
+                    amount: 0,
+                    notes: `נוצר מהקלטה: "${text}"`,
+                    vault: ''
+                };
+
+                setClients(prev => prev.map(c => c.id === targetClientId ? { ...c, tasks: [newTask, ...c.tasks] } : c));
+                setExpandedClients(prev => ({ ...prev, [targetClientId]: true }));
+                setAiFeedback(`התווסף בהצלחה: "${newTask.title}"`);
+                setTimeout(() => setAiFeedback(null), 3000);
+            };
+
+            const toggleVoice = () => {
+                const Speech = window.SpeechRecognition || window.webkitSpeechRecognition;
+                if (!Speech) return alert('הדפדפן אינו תומך בהקלטה ישירה, ניתן להקליד כרגיל');
+                const rec = new Speech();
+                rec.lang = 'he-IL';
+                rec.onstart = () => setIsListening(true);
+                rec.onresult = (e) => { setAiInput(e.results[0][0].transcript); setIsListening(false); };
+                rec.onend = () => setIsListening(false);
+                rec.start();
+            };
+
+            if (!isAuthenticated) {
+                return (
+                    <div className="min-h-screen flex items-center justify-center bg-zinc-950 p-4">
+                        <div className="w-full max-w-sm bg-zinc-900 border border-zinc-800 rounded-2xl p-8 text-center shadow-2xl">
+                            <div className="w-12 h-12 rounded-xl bg-zinc-800 border border-zinc-700 flex items-center justify-center font-black text-xl text-white mx-auto mb-4">S</div>
+                            <h1 className="text-2xl font-bold text-white mb-1">ShayOS</h1>
+                            <p className="text-xs text-zinc-400 mb-6">מערכת מנהל פרטית ומאובטחת</p>
+                            <form onSubmit={handleLogin} className="space-y-4">
+                                <input type="password" value={loginPassword} onChange={e => setLoginPassword(e.target.value)} placeholder="סיסמה (ברירת מחדל: shay)" 
+                                       className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-4 py-3 text-white text-center text-sm outline-none focus:border-zinc-500" />
+                                {authError && <p className="text-xs text-urgent">סיסמה שגויה (הסיסמה היא: shay)</p>}
+                                <button type="submit" className="w-full py-3 bg-zinc-100 hover:bg-white text-zinc-950 font-bold rounded-xl text-sm transition">כניסה</button>
+                            </form>
+                        </div>
+                    </div>
+                );
+            }
+
+            return (
+                <div className="min-h-screen flex flex-col bg-zinc-950 text-zinc-300 pb-28">
+                    {/* Header */}
+                    <header className="border-b border-zinc-800/80 bg-zinc-950/80 backdrop-blur-md sticky top-0 z-30 px-6 py-3.5 flex justify-between items-center">
+                        <div className="flex items-center gap-3">
+                            <div className="w-7 h-7 rounded-lg bg-zinc-800 border border-zinc-700 flex items-center justify-center font-black text-sm text-white">S</div>
+                            <span className="text-base font-bold text-white">Shay<span className="text-zinc-500 font-light">OS</span></span>
+                        </div>
+                        <button onClick={() => { localStorage.removeItem('shayos_auth'); setIsAuthenticated(false); }} className="text-zinc-500 hover:text-urgent text-xs">
+                            <i className="fa-solid fa-lock ml-1"></i> נעילה
+                        </button>
+                    </header>
+
+                    {/* Main Container */}
+                    <main className="max-w-4xl w-full mx-auto px-4 md:px-6 pt-6 flex-1">
+                        {/* Macro Cards */}
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
+                            <div onClick={() => setActiveTab('urgent')} className="bg-zinc-900 border border-zinc-800 p-4 rounded-xl cursor-pointer">
+                                <div className="text-xs text-zinc-400 mb-1">פוקוס היום <span className="text-urgent">🔥</span></div>
+                                <div className="text-2xl font-black text-white">{macro.urgent}</div>
+                            </div>
+                            <div onClick={() => setActiveTab('finance')} className="bg-zinc-900 border border-zinc-800 p-4 rounded-xl cursor-pointer">
+                                <div className="text-xs text-zinc-400 mb-1">כסף פתוח <span className="text-waiting">💰</span></div>
+                                <div className="text-2xl font-black text-white">{macro.moneyPending}</div>
+                            </div>
+                            <div className="bg-zinc-900 border border-zinc-800 p-4 rounded-xl">
+                                <div className="text-xs text-zinc-400 mb-1">מחכה לאחרים <span className="text-waiting">⏳</span></div>
+                                <div className="text-2xl font-black text-white">{macro.delegated}</div>
+                            </div>
+                            <div className="bg-zinc-900 border border-zinc-800 p-4 rounded-xl">
+                                <div className="text-xs text-zinc-400 mb-1">תור ה-AI <span className="text-ai">🤖</span></div>
+                                <div className="text-2xl font-black text-white">{macro.ai}</div>
+                            </div>
+                        </div>
+
+                        {/* Tabs */}
+                        <div className="flex gap-2 border-b border-zinc-800 pb-2 mb-5 overflow-x-auto hide-scrollbar">
+                            <button onClick={() => setActiveTab('clients')} className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold ${activeTab === 'clients' ? 'bg-zinc-800 text-white' : 'text-zinc-500'}`}>תצוגת לקוחות</button>
+                            <button onClick={() => setActiveTab('quick')} className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold ${activeTab === 'quick' ? 'bg-zinc-800 text-quick' : 'text-zinc-500'}`}>ניצחונות מהירים (⚡)</button>
+                            <button onClick={() => setActiveTab('finance')} className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold ${activeTab === 'finance' ? 'bg-zinc-800 text-waiting' : 'text-zinc-500'}`}>כספים (💰)</button>
+                            <button onClick={() => setActiveTab('focus')} className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold ${activeTab === 'focus' ? 'bg-zinc-800 text-urgent' : 'text-zinc-500'}`}>פוקוס מוחלט (🎯)</button>
+                        </div>
+
+                        {/* Content */}
+                        {activeTab === 'clients' && (
+                            <div className="space-y-3">
+                                {clients.map(client => (
+                                    <div key={client.id} className="bg-zinc-900 border border-zinc-800 rounded-xl overflow-hidden">
+                                        <div onClick={() => setExpandedClients(p => ({ ...p, [client.id]: !p[client.id] }))} className="px-4 py-3 flex justify-between items-center cursor-pointer hover:bg-zinc-850">
+                                            <div className="flex items-center gap-2">
+                                                <span className="text-sm font-bold text-white">{client.name}</span>
+                                                <span className="bg-zinc-800 text-[10px] px-2 py-0.5 rounded-full text-zinc-400 font-mono">[{client.tasks.length}]</span>
+                                            </div>
+                                            <i className={`fa-solid fa-chevron-down text-xs transition ${expandedClients[client.id] ? 'rotate-180' : ''}`}></i>
+                                        </div>
+                                        {expandedClients[client.id] && (
+                                            <div className="px-4 pb-3 border-t border-zinc-800/60 divide-y divide-zinc-800/40">
+                                                {client.tasks.map(t => (
+                                                    <div key={t.id} id={`task-${t.id}`} className="py-2.5 flex items-center justify-between gap-3">
+                                                        <div className="flex items-center gap-3">
+                                                            <button onClick={() => completeTask(client.id, t.id)} className="w-4 h-4 rounded border border-zinc-700 hover:border-completed flex items-center justify-center"></button>
+                                                            <span className="text-xs md:text-sm text-zinc-200">{t.title}</span>
+                                                        </div>
+                                                        <span className="text-xs">{t.tag === 'urgent' ? '🔥' : (t.tag === 'quick' ? '⚡' : '🐢')}</span>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        )}
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+
+                        {activeTab === 'focus' && (
+                            <div className="max-w-md mx-auto my-8 bg-zinc-900 border border-zinc-800 rounded-2xl p-6 text-center shadow-2xl">
+                                <div className="text-[10px] font-bold text-urgent uppercase mb-3">מצב פוקוס מוחלט • משימה אחת בלבד</div>
+                                {allUrgentTasks.length > 0 ? (
+                                    <div>
+                                        <div className="text-xs text-zinc-400 mb-1">{allUrgentTasks[0].clientName}</div>
+                                        <h3 className="text-xl font-black text-white mb-6">{allUrgentTasks[0].title}</h3>
+                                        <div className="font-mono text-4xl font-bold text-zinc-100 mb-6">{Math.floor(focusTimer/60)}:{focusTimer%60 < 10 ? '0' : ''}{focusTimer%60}</div>
+                                        <button onClick={() => completeTask(allUrgentTasks[0].clientId, allUrgentTasks[0].id)} className="px-6 py-2.5 bg-completed text-zinc-950 font-bold rounded-xl text-xs">בוצע! עבור לבאה ✓</button>
+                                    </div>
+                                ) : <div className="py-6 text-xs text-zinc-500">אין משימות דחופות כרגע!</div>}
+                            </div>
+                        )}
+                    </main>
+
+                    {/* Bottom AI Bar */}
+                    <div className="fixed bottom-0 left-0 right-0 p-3 bg-gradient-to-t from-zinc-950 to-transparent">
+                        <div className="max-w-3xl mx-auto">
+                            {aiFeedback && <div className="mb-2 text-center text-xs text-ai font-bold">{aiFeedback}</div>}
+                            <form onSubmit={handleAiSubmit} className="flex items-center bg-zinc-900 border border-zinc-800 rounded-2xl p-1.5 shadow-2xl">
+                                <button type="button" onClick={toggleVoice} className={`w-10 h-10 rounded-xl flex items-center justify-center ${isListening ? 'bg-urgent text-white animate-pulse' : 'bg-zinc-800 text-zinc-400'}`}>
+                                    <i className="fa-solid fa-microphone text-sm"></i>
+                                </button>
+                                <input type="text" value={aiInput} onChange={e => setAiInput(e.target.value)} placeholder="דבר אליי... (למשל: סיימתי פוסט לטריפל סי, תזכיר לשלוח חשבונית)" 
+                                       className="flex-1 bg-transparent outline-none text-white px-3 text-xs md:text-sm placeholder-zinc-500" />
+                                <button type="submit" className="w-10 h-10 rounded-xl bg-zinc-100 text-zinc-950 flex items-center justify-center font-bold">
+                                    <i className="fa-solid fa-arrow-up text-xs"></i>
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            );
+        }
+
+        ReactDOM.createRoot(document.getElementById('root')).render(<ShayOS />);
+    </script>
+</body>
+</html>
